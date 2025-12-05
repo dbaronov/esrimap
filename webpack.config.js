@@ -32,16 +32,25 @@ module.exports = {
     extensions: ['.js', '.jsx']
   },
   devServer: {
-    contentBase: path.join(__dirname, 'dist'),
+    static: {
+      directory: path.join(__dirname, 'dist')
+    },
     compress: true,
     port: 3000,
     hot: true,
-    historyApiFallback: true
+    historyApiFallback: true,
+    open: false
   },
   plugins: [
     new HtmlWebpackPlugin({
       template: './public/index.html',
       filename: 'index.html'
     })
-  ]
+  ],
+  optimization: {
+    splitChunks: {
+      minSize: 100000,  // Larger chunks (default 20KB)
+      maxAsyncRequests: 5  // Max 5 parallel requests
+    }
+  }
 };
