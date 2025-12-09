@@ -6,7 +6,7 @@ module.exports = {
   entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.js',
+    filename: '[name].[contenthash].js',
     assetModuleFilename: 'assets/[hash][ext][query]'
   },
   module: {
@@ -37,6 +37,28 @@ module.exports = {
     port: 3000,
     hot: true,
     historyApiFallback: true
+  },
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      maxAsyncRequests: 5,
+      maxInitialRequests: 5,
+      cacheGroups: {
+        vendors: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10,
+          reuseExistingChunk: true,
+          enforce: true
+        },
+        common: {
+          minChunks: 2,
+          priority: 5,
+          reuseExistingChunk: true,
+          name: 'common'
+        }
+      }
+    }
   },
   plugins: [
     new HtmlWebpackPlugin({
