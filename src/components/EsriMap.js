@@ -19,11 +19,9 @@ const EsriMap = () => {
         const { default: FeatureLayer } = await import('@arcgis/core/layers/FeatureLayer');
         const { default: Graphic } = await import('@arcgis/core/Graphic');
         const { default: GraphicsLayer } = await import('@arcgis/core/layers/GraphicsLayer');
-        const { Polygon, Point } = await import('@arcgis/core/geometry');
+        const { Polygon } = await import('@arcgis/core/geometry');
         const { default: SimpleFillSymbol } = await import('@arcgis/core/symbols/SimpleFillSymbol');
         const { default: SimpleLineSymbol } = await import('@arcgis/core/symbols/SimpleLineSymbol');
-        const { default: SimpleMarkerSymbol } = await import('@arcgis/core/symbols/SimpleMarkerSymbol');
-        const { default: PopupTemplate } = await import('@arcgis/core/PopupTemplate');
 
         if (!mapDiv.current) return;
 
@@ -39,7 +37,7 @@ const EsriMap = () => {
           center: [yorkshireHumberCenter.longitude, yorkshireHumberCenter.latitude],
           zoom: 8,
           popup: {
-            autoOpenEnabled: true,
+            autoOpenEnabled: false, // Disable auto-open to handle manually
             dockEnabled: true,
             dockOptions: {
               // Mobile-first: dock at bottom for small screens
@@ -159,29 +157,62 @@ const EsriMap = () => {
           }
         }
 
-        // Add city markers with popup templates
-        const citiesLayer = new GraphicsLayer({
-          title: 'Cities in Yorkshire and The Humber'
-        });
-        
-        cities.forEach((city) => {
-          const point = new Point({
-            longitude: city.longitude,
-            latitude: city.latitude,
-            spatialReference: { wkid: 4326 }
-          });
-
-          const markerSymbol = new SimpleMarkerSymbol({
-            color: [55, 122, 171, 0.8],
-            size: 14,
-            outline: {
-              color: [255, 255, 255, 1],
-              width: 2
+        // Add city markers using FeatureLayer for clustering support
+        const citiesFeatures = cities.map((city) => {
+          return {
+            geometry: {
+              type: 'point',
+              longitude: city.longitude,
+              latitude: city.latitude
+            },
+            attributes: {
+              title: city.name,
+              description: city.description,
+              id: city.id
             }
-          });
+          };
+        });
 
-          // Create popup template for the city
-          const popupTemplate = new PopupTemplate({
+        // Create a FeatureLayer from the cities data
+        const citiesLayer = new FeatureLayer({
+          title: 'Cities in Yorkshire and The Humber',
+          source: citiesFeatures,
+          fields: [
+            {
+              name: 'ObjectID',
+              alias: 'ObjectID',
+              type: 'oid'
+            },
+            {
+              name: 'title',
+              alias: 'City Name',
+              type: 'string'
+            },
+            {
+              name: 'description',
+              alias: 'Description',
+              type: 'string'
+            },
+            {
+              name: 'id',
+              alias: 'ID',
+              type: 'string'
+            }
+          ],
+          objectIdField: 'ObjectID',
+          renderer: {
+            type: 'simple',
+            symbol: {
+              type: 'simple-marker',
+              color: [55, 122, 171, 0.8],
+              size: 14,
+              outline: {
+                color: [255, 255, 255, 1],
+                width: 2
+              }
+            }
+          },
+          popupTemplate: {
             title: '{title}',
             content: [
               {
@@ -189,23 +220,91 @@ const EsriMap = () => {
                 text: '{description}'
               }
             ]
-          });
-
-          const graphic = new Graphic({
-            geometry: point,
-            symbol: markerSymbol,
-            attributes: {
-              title: city.name,
-              description: city.description,
-              id: city.id
+          },
+          // Enable clustering
+          featureReduction: {
+            type: 'cluster',
+            clusterRadius: 80,
+            clusterMinSize: 16.5,
+            // Renderer for clusters - color based on cluster count
+            renderer: {
+              type: 'class-breaks',
+              field: 'cluster_count',
+              classBreakInfos: [
+                {
+                  minValue: 0,
+                  maxValue: 20,
+                  symbol: {
+                    type: 'simple-marker',
+                    color: [55, 122, 171, 0.8], // Original blue
+                    size: 14,
+                    outline: {
+                      color: [255, 255, 255, 1],
+                      width: 2
+                    }
+                  }
+                },
+                {
+                  minValue: 21,
+                  maxValue: Infinity,
+                  symbol: {
+                    type: 'simple-marker',
+                    color: [255, 0, 0, 0.8], // Semi-transparent red for > 20 markers
+                    size: 14,
+                    outline: {
+                      color: [255, 255, 255, 1],
+                      width: 2
+                    }
+                  }
+                }
+              ]
             },
-            popupTemplate: popupTemplate
-          });
-
-          citiesLayer.add(graphic);
+            // Define labels for clusters
+            labelingInfo: [
+              {
+                deconflictionStrategy: 'none',
+                labelExpressionInfo: {
+                  expression: "Text($feature.cluster_count, '#,###')"
+                },
+                symbol: {
+                  type: 'text',
+                  color: 'white',
+                  font: {
+                    family: 'Noto Sans',
+                    size: '12px'
+                  }
+                },
+                labelPlacement: 'center-center'
+              }
+            ]
+          }
         });
 
         map.add(citiesLayer);
+
+        // Handle marker click events - show popup only for individual markers
+        view.on('click', async (event) => {
+          view.popup.close();
+          
+          const hitTestResult = await view.hitTest(event);
+          
+          // Look for results from the cities layer
+          const citiesLayerResults = hitTestResult.results.filter((result) => {
+            return result.layer === citiesLayer;
+          });
+
+          if (citiesLayerResults.length > 0) {
+            const graphic = citiesLayerResults[0].graphic;
+            
+            // Only show popup for individual markers, not clusters
+            if (!graphic.isAggregate) {
+              view.popup.open({
+                features: [graphic],
+                location: event.mapPoint
+              });
+            }
+          }
+        });
 
         setMapReady(true);
       } catch (err) {
