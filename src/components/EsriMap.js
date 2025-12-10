@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { yorkshireHumberCenter, cities } from '../data/regionData';
 import { yorkshireHumberBoundaryDetailed } from '../data/boundaryData';
+import BottomModal from './BottomModal';
 import './EsriMap.css';
 
 const EsriMap = () => {
   const mapDiv = useRef(null);
   const mapView = useRef(null);
   const [mapReady, setMapReady] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedMarker, setSelectedMarker] = useState(null);
 
   useEffect(() => {
     let view = null;
@@ -30,20 +33,14 @@ const EsriMap = () => {
           basemap: 'streets-vector'
         });
 
-        // Create the view with popup enabled and mobile-first configuration
+        // Create the view with popup disabled since we're using a custom modal
         view = new MapView({
           container: mapDiv.current,
           map: map,
           center: [yorkshireHumberCenter.longitude, yorkshireHumberCenter.latitude],
           zoom: 8,
           popup: {
-            autoOpenEnabled: false, // Disable auto-open to handle manually
-            dockEnabled: true,
-            dockOptions: {
-              // Mobile-first: dock at bottom for small screens
-              position: window.innerWidth < 768 ? 'bottom' : 'bottom-right',
-              breakpoint: 768 // Breakpoint for responsive docking
-            }
+            autoOpenEnabled: false, // Disable auto-open, we'll use our custom modal
           },
           // Mobile optimizations
           constraints: {
@@ -158,7 +155,7 @@ const EsriMap = () => {
         }
 
         // Add city markers using FeatureLayer for clustering support
-        const citiesFeatures = cities.map((city) => {
+        const citiesFeatures = cities.map((city, index) => {
           return {
             geometry: {
               type: 'point',
@@ -166,9 +163,13 @@ const EsriMap = () => {
               latitude: city.latitude
             },
             attributes: {
+              ObjectID: index + 1,
+              name: city.name,
               title: city.name,
               description: city.description,
-              id: city.id
+              id: city.id,
+              latitude: city.latitude,
+              longitude: city.longitude
             }
           };
         });
@@ -184,8 +185,13 @@ const EsriMap = () => {
               type: 'oid'
             },
             {
+              name: 'name',
+              alias: 'Location Name',
+              type: 'string'
+            },
+            {
               name: 'title',
-              alias: 'City Name',
+              alias: 'Title',
               type: 'string'
             },
             {
@@ -195,8 +201,18 @@ const EsriMap = () => {
             },
             {
               name: 'id',
-              alias: 'ID',
+              alias: 'Location ID',
               type: 'string'
+            },
+            {
+              name: 'latitude',
+              alias: 'Latitude',
+              type: 'double'
+            },
+            {
+              name: 'longitude',
+              alias: 'Longitude',
+              type: 'double'
             }
           ],
           objectIdField: 'ObjectID',
@@ -211,15 +227,6 @@ const EsriMap = () => {
                 width: 2
               }
             }
-          },
-          popupTemplate: {
-            title: '{title}',
-            content: [
-              {
-                type: 'text',
-                text: '{description}'
-              }
-            ]
           },
           // Enable clustering
           featureReduction: {
@@ -282,10 +289,8 @@ const EsriMap = () => {
 
         map.add(citiesLayer);
 
-        // Handle marker click events - show popup only for individual markers
+        // Handle marker click events - show modal only for individual markers
         view.on('click', async (event) => {
-          view.popup.close();
-          
           const hitTestResult = await view.hitTest(event);
           
           // Look for results from the cities layer
@@ -296,12 +301,22 @@ const EsriMap = () => {
           if (citiesLayerResults.length > 0) {
             const graphic = citiesLayerResults[0].graphic;
             
-            // Only show popup for individual markers, not clusters
+            // Only show modal for individual markers, not clusters
             if (!graphic.isAggregate) {
-              view.popup.open({
-                features: [graphic],
-                location: event.mapPoint
-              });
+              // Get the ObjectID to look up the original city data
+              const objectId = graphic.attributes?.ObjectID;
+              const originalCity = objectId ? cities[objectId - 1] : null;
+              
+              if (originalCity) {
+                setSelectedMarker({
+                  name: originalCity.name,
+                  description: originalCity.description,
+                  id: originalCity.id,
+                  latitude: originalCity.latitude,
+                  longitude: originalCity.longitude
+                });
+                setModalOpen(true);
+              }
             }
           }
         });
@@ -328,6 +343,9 @@ const EsriMap = () => {
 
       const view = mapView.current;
       if (!view) return;
+
+      // Only process navigation keys - early exit for better performance
+      if (!/^(Arrow|[+\-=_]|Escape)/.test(event.key)) return;
 
       const scale = 1.5;
       const panDistance = (view.extent.height / view.height) * 50;
@@ -373,9 +391,9 @@ const EsriMap = () => {
           break;
         case 'Escape':
           event.preventDefault();
-          // Close the popup if it's open
-          if (view.popup && view.popup.visible) {
-            view.popup.close();
+          // Close the modal if it's open
+          if (modalOpen) {
+            setModalOpen(false);
           }
           break;
         default:
@@ -385,38 +403,51 @@ const EsriMap = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mapReady]);
-
-  // Handle responsive popup docking on window resize
-  useEffect(() => {
-    if (!mapReady) return;
-
-    const view = mapView.current;
-    if (!view) return;
-
-    const handleResize = () => {
-      // Update popup position based on window width
-      if (window.innerWidth < 768) {
-        view.popup.dockOptions.position = 'bottom';
-      } else {
-        view.popup.dockOptions.position = 'bottom-right';
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [mapReady]);
+  }, [mapReady, modalOpen]);
 
   return (
-    <div className="esri-map-container">
-      <div
-        ref={mapDiv}
-        className="esri-map"
-        role="region"
-        aria-label="Interactive map of Yorkshire and The Humber region showing major cities with clickable information windows"
-        tabIndex="0"
-      />
-    </div>
+    <>
+      {/* Skip link for keyboard navigation */}
+      <a
+        href="#main-content"
+        className="sr-only-focusable"
+        style={{
+          position: 'absolute',
+          top: '-40px',
+          left: 0,
+          backgroundColor: '#000',
+          color: '#fff',
+          padding: '8px',
+          zIndex: 10001,
+          textDecoration: 'none',
+          borderRadius: '0 0 4px 0'
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.top = '0';
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.top = '-40px';
+        }}
+      >
+        Skip to map content
+      </a>
+      <main id="main-content">
+        <BottomModal
+          isOpen={modalOpen}
+          markerData={selectedMarker}
+          onClose={() => setModalOpen(false)}
+        />
+        <div className="esri-map-container">
+          <div
+            ref={mapDiv}
+            className="esri-map"
+            role="region"
+            aria-label="Interactive map of Yorkshire and The Humber region showing major cities with clickable information windows"
+            tabIndex="0"
+          />
+        </div>
+      </main>
+    </>
   );
 };
 
