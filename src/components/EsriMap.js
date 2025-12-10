@@ -416,20 +416,6 @@ const EsriMap = () => {
         aria-label="Interactive map of Yorkshire and The Humber region showing major cities with clickable information windows"
         tabIndex="0"
       />
-
-      {/* Accessibility help panel */}
-      <div className="accessibility-help" role="complementary" aria-label="Map navigation instructions">
-        <details>
-          <summary>Map Navigation Help</summary>
-          <ul>
-            <li><kbd>Arrow Keys</kbd> - Pan the map</li>
-            <li><kbd>+</kbd> or <kbd>=</kbd> - Zoom in</li>
-            <li><kbd>-</kbd> - Zoom out</li>
-            <li><kbd>Click City Marker</kbd> - Open city information window</li>
-            <li><kbd>Escape</kbd> - Close information window</li>
-          </ul>
-        </details>
-      </div>
     </div>
   );
 };
