@@ -195,10 +195,6 @@
   text-transform: uppercase;
 }
 
-.severity-critical { background: #dc2626; }
-.severity-high { background: #ea580c; }
-.severity-medium { background: #f59e0b; color: #111827; }
-
 /* Left border accents for incident severity */
 .incident-card.severity-critical { border-left-color: #ef4444; }
 .incident-card.severity-high { border-left-color: #fb923c; }
