@@ -250,7 +250,7 @@ const EsriMap = () => {
           // Enable clustering
           featureReduction: {
             type: 'cluster',
-            clusterRadius: 80,
+            clusterRadius: 180,
             clusterMinSize: 16.5,
             // Renderer for clusters - color based on cluster count
             renderer: {
