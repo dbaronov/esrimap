@@ -159,8 +159,8 @@ const EsriMap = () => {
           return {
             geometry: {
               type: 'point',
-              longitude: city.longitude,
-              latitude: city.latitude
+              longitude: city.lng,
+              latitude: city.lat
             },
             attributes: {
               ObjectID: index + 1,
@@ -168,8 +168,11 @@ const EsriMap = () => {
               title: city.name,
               description: city.description,
               id: city.id,
-              latitude: city.latitude,
-              longitude: city.longitude
+              latitude: city.lat,
+              longitude: city.lng,
+              type: city.type,
+              population: city.population,
+              incident: city.incident
             }
           };
         });
@@ -213,6 +216,22 @@ const EsriMap = () => {
               name: 'longitude',
               alias: 'Longitude',
               type: 'double'
+            }
+            ,
+            {
+              name: 'type',
+              alias: 'Location Type',
+              type: 'string'
+            },
+            {
+              name: 'population',
+              alias: 'Population',
+              type: 'string'
+            },
+            {
+              name: 'incident',
+              alias: 'Incident',
+              type: 'string'
             }
           ],
           objectIdField: 'ObjectID',
@@ -307,14 +326,17 @@ const EsriMap = () => {
               const objectId = graphic.attributes?.ObjectID;
               const originalCity = objectId ? cities[objectId - 1] : null;
               
-              if (originalCity) {
-                setSelectedMarker({
-                  name: originalCity.name,
-                  description: originalCity.description,
-                  id: originalCity.id,
-                  latitude: originalCity.latitude,
-                  longitude: originalCity.longitude
-                });
+                if (originalCity) {
+                  setSelectedMarker({
+                    name: originalCity.name,
+                    description: originalCity.description,
+                    id: originalCity.id,
+                    latitude: originalCity.lat,
+                    longitude: originalCity.lng,
+                    type: originalCity.type,
+                    population: originalCity.population,
+                    incident: originalCity.incident
+                  });
                 setModalOpen(true);
               }
             }

@@ -114,27 +114,78 @@ const BottomModal = ({ isOpen, markerData, onClose }) => {
             </div>
           )}
 
-          {/* Location Details */}
+          {/* Incident Card */}
+          {markerData.incident && (
+            (() => {
+              const incident = markerData.incident;
+              const incidentCap = incident.charAt(0).toUpperCase() + incident.slice(1);
+              // Map incident to severity
+              const sevMap = {
+                flooding: 'Critical',
+                sewage: 'High',
+                leak: 'Medium',
+                pressure: 'Medium',
+                drain: 'Low',
+                smell: 'Low',
+                pollution: 'High'
+              };
+              const severity = sevMap[incident] || 'Low';
+              const severityLabel = severity.toUpperCase();
+              return (
+                <div className={`incident-card severity-${severity.toLowerCase()}`} aria-hidden={false}>
+                  <div className={`severity-pill severity-${severity.toLowerCase()}`}>{severityLabel}</div>
+                  <div className="incident-title">{incidentCap} Incident</div>
+                </div>
+              );
+            })()
+          )}
+
+          {/* Location Details — styled blocks */}
           <div className="bottom-modal-details">
             <h3 className="bottom-modal-details-title">Location Details</h3>
-            
-            {markerData.latitude !== undefined && markerData.longitude !== undefined && (
-              <>
-                <div className="bottom-modal-detail-item">
-                  <span className="detail-label">Latitude:</span>
-                  <span className="detail-value">{markerData.latitude.toFixed(4)}</span>
-                </div>
-                <div className="bottom-modal-detail-item">
-                  <span className="detail-label">Longitude:</span>
-                  <span className="detail-value">{markerData.longitude.toFixed(4)}</span>
-                </div>
-              </>
-            )}
+
+            <div className="detail-card">
+              <div className="detail-left">
+                <span className="detail-icon" aria-hidden>📍</span>
+                <div className="detail-meta">Location Type</div>
+              </div>
+              <div className="detail-right">{markerData.type || '—'}</div>
+            </div>
+
+            <div className="detail-card">
+              <div className="detail-left">
+                <span className="detail-icon" aria-hidden>👥</span>
+                <div className="detail-meta">Population</div>
+              </div>
+              <div className="detail-right">{markerData.population || '—'}</div>
+            </div>
+
+            <div className="detail-card">
+              <div className="detail-left">
+                <span className="detail-icon" aria-hidden>🌐</span>
+                <div className="detail-meta">Coordinates</div>
+              </div>
+              <div className="detail-right">
+                {markerData.latitude !== undefined && markerData.longitude !== undefined
+                  ? `${formatCoord(markerData.latitude, 'lat')}, ${formatCoord(markerData.longitude, 'lng')}`
+                  : '—'}
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+// Helper to format coordinates with hemisphere and degree symbol
+function formatCoord(value, type) {
+  const abs = Math.abs(value);
+  const deg = abs.toFixed(4);
+  if (type === 'lat') {
+    return `${deg}°${value >= 0 ? 'N' : 'S'}`;
+  }
+  return `${deg}°${value >= 0 ? 'E' : 'W'}`;
+}
 
 export default BottomModal;
